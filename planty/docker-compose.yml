@@ -2,19 +2,13 @@ version: '2'
 
 services:
   influx:
-    image: influxdb:alpine
+    image: influxdb
     ports:
       - "8086:8086"
       - "8083:8083"
     volumes:
       - ./influxdb:/var/lib/influxdb
-      - ./influxdb_etc:/etc/influxdb/
-    environment:
-      - INFLUXDB_DB=planty
-      - INFLUXDB_HTTP_AUTH_ENABLED=true
-      - INFLUXDB_ADMIN_ENABLED=true
-      - INFLUXDB_ADMIN_USER=admin
-      - INFLUXDB_ADMIN_PASSWORD=admin
+      - ./influxdb_etc:/etc/influxdb
   grafana:
     image: grafana/grafana
     ports:

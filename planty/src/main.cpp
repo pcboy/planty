@@ -12,6 +12,10 @@
 #define RTC_BASE 65
 #define SLEEP_CYCLE 4294967295 // 0xffffffff
 
+#define INFLUXDB_URI "http://192.168.115.199:8086/write?db=planty"
+#define INFLUXDB_USER "planty"
+#define INFLUXDB_PASSWORD "test"
+
 int sleepCount = 0;
 byte magicNumber[2] = {0x42, 0x42};
 byte buf[2];
@@ -19,16 +23,15 @@ int readings[10] = {0};
 
 void send_notification(int value) {
   HTTPClient http;
-  http.begin("http://192.168.138.180:8086/write?db=planty");
+  http.begin(INFLUXDB_URI);
   http.addHeader("Content-Type", "text/plain");
-  http.setAuthorization("planty", "test");
-  int httpCode = http.POST("planty,device=planty adc=" + String(value));
+  http.setAuthorization(INFLUXDB_USER, INFLUXDB_PASSWORD);
+  http.POST("planty,device=planty adc=" + String(value));
   http.end();
 }
 
 void report_temp() {
   MedianFilter medianFilter(10, 0);
-  int total = 0;
 
   for (int i = 0; i < 10; ++i) {
     medianFilter.in(analogRead(SENSOR_PIN));
@@ -69,14 +72,14 @@ void setup() {
     system_rtc_mem_write(RTC_BASE, &magicNumber, sizeof(magicNumber));
     system_rtc_mem_write(RTC_BASE + sizeof(magicNumber), &sleepCount, sizeof(sleepCount));
   }
-  WiFiManager wifiManager;
-  wifiManager.autoConnect("PLANTY");
-
-  Serial.println("local ip");
-  Serial.println(WiFi.localIP());
-  Serial.printf("sleepCount: %i\n", sleepCount);
 
   if (sleepCount == 0) {
+    WiFiManager wifiManager;
+    wifiManager.autoConnect("PLANTY");
+
+    Serial.println("local ip");
+    Serial.println(WiFi.localIP());
+    Serial.printf("sleepCount: %i\n", sleepCount);
     report_temp();
   }
   if (sleepCount < 24) {
@@ -91,6 +94,4 @@ void setup() {
 
 
 void loop() {
-
-
 }
