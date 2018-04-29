@@ -9,9 +9,17 @@ services:
     volumes:
       - ./influxdb:/var/lib/influxdb
       - ./influxdb_etc:/etc/influxdb
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+      - INFLUXDB_ADMIN_ENABLED=true
+      - INFLUXDB_ADMIN_USER=admin
+
   grafana:
     image: grafana/grafana
     ports:
       - "4242:3000"
     volumes:
       - ./grafana:/var/lib/grafana
+    user: 'root'
