@@ -8,6 +8,7 @@
 #include "MedianFilter.h"
 
 #define SENSOR_PIN 17
+#define SENSOR_POWER_PIN 14
 #define ALERT_VALUE 4096
 #define RTC_BASE 65
 #define SLEEP_CYCLE 4294967295 // 0xffffffff
@@ -31,12 +32,16 @@ void send_notification(int value) {
 }
 
 void report_temp() {
-  MedianFilter medianFilter(10, 0);
+  MedianFilter medianFilter(5, 0);
+  int total = 0;
+  digitalWrite(SENSOR_POWER_PIN, HIGH);
 
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < 5; ++i) {
     medianFilter.in(analogRead(SENSOR_PIN));
     delay(1000);
   }
+  digitalWrite(SENSOR_POWER_PIN, LOW);
+
   int mean = medianFilter.getMean();
 
   Serial.printf("ADC: %i\n", mean);
@@ -59,6 +64,9 @@ void setup() {
   // Wait for serial to initialize.
   while(!Serial) { }
   Serial.println("------");
+
+  pinMode(SENSOR_POWER_PIN, OUTPUT);
+  digitalWrite(SENSOR_POWER_PIN, LOW);//Set to LOW so no power is flowing through the sensor
 
   WiFi.forceSleepBegin();  // send wifi to sleep to reduce power consumption
 
