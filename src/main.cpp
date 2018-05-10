@@ -6,6 +6,7 @@
 #include <ESP8266WiFi.h>
 
 #include "MedianFilter.h"
+#include "secrets.h"
 
 #define SENSOR_PIN 17
 #define SENSOR_POWER_PIN 14
@@ -13,16 +14,19 @@
 #define RTC_BASE 65
 #define SLEEP_CYCLE 4294967295 // 0xffffffff
 
-#define INFLUXDB_URI "http://192.168.115.199:8086/write?db=planty"
-#define INFLUXDB_USER "planty"
-#define INFLUXDB_PASSWORD "test"
-
 int sleepCount = 0;
 byte magicNumber[2] = {0x42, 0x42};
 byte buf[2];
 int readings[10] = {0};
 
 void send_notification(int value) {
+  WiFiManager wifiManager;
+  wifiManager.autoConnect("PLANTY");
+
+  Serial.println("local ip");
+  Serial.println(WiFi.localIP());
+  Serial.printf("sleepCount: %i\n", sleepCount);
+
   HTTPClient http;
   http.begin(INFLUXDB_URI);
   http.addHeader("Content-Type", "text/plain");
@@ -37,8 +41,8 @@ void report_temp() {
   digitalWrite(SENSOR_POWER_PIN, HIGH);
 
   for (int i = 0; i < 5; ++i) {
-    medianFilter.in(analogRead(SENSOR_PIN));
-    delay(1000);
+    medianFilter.in(map(analogRead(SENSOR_PIN), 0, 1023, 0, 1000));
+    delay(500);
   }
   digitalWrite(SENSOR_POWER_PIN, LOW);
 
@@ -82,12 +86,6 @@ void setup() {
   }
 
   if (sleepCount == 0) {
-    WiFiManager wifiManager;
-    wifiManager.autoConnect("PLANTY");
-
-    Serial.println("local ip");
-    Serial.println(WiFi.localIP());
-    Serial.printf("sleepCount: %i\n", sleepCount);
     report_temp();
   }
   if (sleepCount < 24) {
