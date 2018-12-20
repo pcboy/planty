@@ -1,31 +1,31 @@
-#include <WiFiManager.h>
-#include <DNSServer.h>            //Local DNS Server used for redirecting all requests to the configuration portal
-#include <ESP8266WebServer.h>     //Local WebServer used to serve the configuration portal
-#include <ESP8266HTTPClient.h>
-
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
 
 #include "MedianFilter.h"
 #include "secrets.h"
 
+#include <Wire.h>
+#include <DS3232RTC.h>
+
+
+
 #define SENSOR_PIN 17
 #define SENSOR_POWER_PIN 14
 #define ALERT_VALUE 4096
-#define RTC_BASE 65
-#define SLEEP_CYCLE 4294967295 // 0xffffffff
+#define SLEEP_CYCLE 3600 * 24 * 10e6
 
-int sleepCount = 0;
-byte magicNumber[2] = {0x42, 0x42};
-byte buf[2];
 int readings[10] = {0};
+DS3232RTC rtc;
+
 
 void send_notification(int value) {
-  WiFiManager wifiManager;
-  wifiManager.autoConnect("PLANTY");
-
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("Connecting to WiFi..");
+  }
   Serial.println("local ip");
   Serial.println(WiFi.localIP());
-  Serial.printf("sleepCount: %i\n", sleepCount);
 
   HTTPClient http;
   http.begin(INFLUXDB_URI);
@@ -37,12 +37,10 @@ void send_notification(int value) {
 
 void report_temp() {
   MedianFilter medianFilter(5, 0);
-  int total = 0;
   digitalWrite(SENSOR_POWER_PIN, HIGH);
 
   for (int i = 0; i < 5; ++i) {
     medianFilter.in(map(analogRead(SENSOR_PIN), 0, 1023, 0, 1000));
-    delay(500);
   }
   digitalWrite(SENSOR_POWER_PIN, LOW);
 
@@ -55,49 +53,46 @@ void report_temp() {
 }
 
 
-uint32_t checkForResetButtonPressed() {
-  rst_info *myResetInfo;
-  myResetInfo = ESP.getResetInfoPtr();
-  Serial.printf("myResetInfo->reason %x \n", myResetInfo->reason);
-  Serial.flush();
-  return myResetInfo->reason;
+void init_rtc() {
+  const char *compile_time = __DATE__" "__TIME__;
+  struct tm tm;
+  Serial.println(compile_time);
+  strptime(compile_time, "%b %d %Y %H:%M:%S", &tm);
+  time_t t = mktime(&tm);
+
+    setTime(t);
+    rtc.set(now());
 }
 
 void setup() {
   Serial.begin(9600);
-  // Wait for serial to initialize.
   while(!Serial) { }
-  Serial.println("------");
 
   pinMode(SENSOR_POWER_PIN, OUTPUT);
   digitalWrite(SENSOR_POWER_PIN, LOW);//Set to LOW so no power is flowing through the sensor
 
-  WiFi.forceSleepBegin();  // send wifi to sleep to reduce power consumption
+  rtc.alarm(ALARM_2);
+  rtc.setAlarm(ALM2_MATCH_HOURS, 54, 15, 0);
+  rtc.squareWave(SQWAVE_NONE);
+  rtc.alarmInterrupt(ALARM_2, true);
 
-  Serial.println("wake up");
-  system_rtc_mem_read(RTC_BASE, &buf, sizeof(buf));
-  if (buf[0] == 0x42 && buf[1] == 0x42 && checkForResetButtonPressed() == REASON_DEEP_SLEEP_AWAKE) { // Not First initialization
-    Serial.println("not first initialization");
-    system_rtc_mem_read(RTC_BASE + sizeof(magicNumber), &sleepCount, sizeof(sleepCount));
-  } else {
-    Serial.println("first initialization");
-    system_rtc_mem_write(RTC_BASE, &magicNumber, sizeof(magicNumber));
-    system_rtc_mem_write(RTC_BASE + sizeof(magicNumber), &sleepCount, sizeof(sleepCount));
-  }
+  report_temp();
 
-  if (sleepCount == 0) {
-    report_temp();
-  }
-  if (sleepCount < 24) {
-    sleepCount++;
-  } else {
-    sleepCount = 0;
-  }
-  system_rtc_mem_write(RTC_BASE + sizeof(magicNumber), &sleepCount, sizeof(sleepCount));
-  ESP.deepSleep(SLEEP_CYCLE);
+  //digitalWrite(27, HIGH);
+  pinMode(27, INPUT_PULLUP);
+
+  // init_rtc(); //set the RTC at compile time
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_27, 0);
+  esp_deep_sleep_start();
 }
 
 
 
 void loop() {
+  tmElements_t myTime;
+  rtc.read(myTime);
+  Serial.printf("%i %i %i %i:%i:%i\n", myTime.Day, myTime.Month,
+      myTime.Year, myTime.Hour, myTime.Minute, myTime.Second);
+  Serial.println("");
+  delay(1000);
 }
