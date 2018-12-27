@@ -19,6 +19,7 @@ DS3232RTC rtc;
 
 
 void send_notification(int value) {
+  WiFi.disconnect();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -33,6 +34,7 @@ void send_notification(int value) {
   http.setAuthorization(INFLUXDB_USER, INFLUXDB_PASSWORD);
   http.POST("planty,device=planty adc=" + String(value));
   http.end();
+  WiFi.disconnect();
 }
 
 void report_temp() {
@@ -89,10 +91,10 @@ void setup() {
 
 
 void loop() {
+  // Remove the esp_deep_sleep() in setup() to print the RTC time.
   tmElements_t myTime;
   rtc.read(myTime);
   Serial.printf("%i %i %i %i:%i:%i\n", myTime.Day, myTime.Month,
       myTime.Year, myTime.Hour, myTime.Minute, myTime.Second);
-  Serial.println("");
   delay(1000);
 }
