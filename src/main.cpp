@@ -12,11 +12,8 @@
 #define SENSOR_PIN 17
 #define SENSOR_POWER_PIN 14
 #define ALERT_VALUE 4096
-#define SLEEP_CYCLE 3600 * 24 * 10e6
 
-int readings[10] = {0};
 DS3232RTC rtc;
-
 
 void send_notification(int value) {
   WiFi.disconnect();
@@ -56,14 +53,16 @@ void report_temp() {
 
 
 void init_rtc() {
+  /*
   const char *compile_time = __DATE__" "__TIME__;
   struct tm tm;
   Serial.println(compile_time);
   strptime(compile_time, "%b %d %Y %H:%M:%S", &tm);
   time_t t = mktime(&tm);
 
-    setTime(t);
-    rtc.set(now());
+  setTime(t);
+  rtc.set(now());
+  */
 }
 
 void setup() {
@@ -74,7 +73,7 @@ void setup() {
   digitalWrite(SENSOR_POWER_PIN, LOW);//Set to LOW so no power is flowing through the sensor
 
   rtc.alarm(ALARM_2);
-  rtc.setAlarm(ALM2_MATCH_HOURS, 54, 15, 0);
+  rtc.setAlarm(ALM2_MATCH_HOURS, 13, 0, 0);
   rtc.squareWave(SQWAVE_NONE);
   rtc.alarmInterrupt(ALARM_2, true);
 
